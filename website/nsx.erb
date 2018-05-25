@@ -1,0 +1,28 @@
+<% wrap_layout :inner do %>
+    <% content_for :sidebar do %>
+      <div class="docs-sidebar hidden-print affix-top" role="complementary">
+        <ul class="nav docs-sidenav">
+          <li<%= sidebar_current("docs-home") %>>
+            <a href="/docs/providers/index.html">All Providers</a>
+          </li>
+  
+          <li<%= sidebar_current("docs-nsx-index") %>>
+            <a href="/docs/providers/nsx/index.html">VMware NSX</a>
+          </li>
+  
+          
+          <li<%= sidebar_current("docs-nsx-resource-inventory") %>>
+            <a href="#">Add virtual machine to Security Group</a>
+            <ul class="nav nav-visible">
+              <li<%= sidebar_current("docs-nsx-add-virtual-machine-security-group") %>>
+                <a href="/docs/providers/nsx/r/add_virtual_machine_security_group.html">nsx_add_virtual_machine_security_group</a>
+              </li>
+            
+              
+            </ul>
+          </li>
+        </ul>
+      </div>
+    <% end %>
+    <%= yield %>
+  <% end %>
