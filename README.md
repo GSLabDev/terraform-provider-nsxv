@@ -1,3 +1,4 @@
+
 # Terraform Vmware NSX Provider
 
 This is the repository for the Terraform [VMware NSX][1] Provider, which one can use
@@ -39,13 +40,25 @@ provider "nsx" {
   port          = ${var.nsx_port}
 }
 
+
+#create a list of virtual machines to be added
+variable "virtual_machine_name_list" {
+  type    = "list"
+  default = ["VM1", "VM2", "VM3"]
+}
+#create a list of virtual machines id to be added
+variable "virtual_machine_id_list" {
+  type    = "list"
+  default = ["vm-296", "vm-298", "vm-297"]
+}
 #add virtual machines in the list to the specified security group
 resource "nsx_add_virtual_machine_security_group" "virtualmachine" {
+  count                = "${length(var.virtual_machine_name_list)}"
   cluster_name         = "Compute Cluster A"
   security_group_name  = "Security Group 1"
   domain_id            = "domain-c242"
-  virtual_machine_name = ["VM1", "VM2", "VM3"]
-  virtual_machine_id   = ["vm-296", "vm-298", "vm-297"]
+  virtual_machine_name = "${element(var.virtual_machine_name_list,count.index)}"
+  virtual_machine_id   = "${element(var.virtual_machine_id_list,count.index)}"
 }
 
 ```
