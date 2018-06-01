@@ -84,13 +84,12 @@ func (nsxCredentials NsxCredentials) NsxConnection(method string, url string, bu
 	response, err := skipSslVerify.Do(request)
 	//check the status of the request i.e. response
 	status := httpResponseStatus(response)
-	log.Println("[ERROR] " + status)
 
-	if response.StatusCode == 200 {
+	if response.StatusCode == http.StatusOK {
 		return response, nil
 	}
 
-	return nil, fmt.Errorf("[ERROR] %s", status)
+	return response, fmt.Errorf("[ERROR] %s", status)
 
 } // nsxConnection
 
@@ -100,6 +99,12 @@ func httpResponseStatus(response *http.Response) string {
 		buffer, _ := ioutil.ReadAll(response.Body)
 		log.Println(string(buffer))
 		status = readErrorResponse(string(buffer))
+	}
+	if response.StatusCode == http.StatusNotFound {
+		status = "Couldn't retrieve the content.404 Not found"
+	}
+	if response.StatusCode == http.StatusUnauthorized {
+		status = "Invalid user login credentials. Please check username / password"
 	}
 	return status
 }
