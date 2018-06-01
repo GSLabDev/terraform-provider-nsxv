@@ -14,7 +14,8 @@ type securityGroups struct {
 	SecurityGroup []securityGroup `xml:"securitygroup"`
 }
 
-func getMembers(ResponseData []uint8) bool {
+func getMembers(ResponseData []uint8, securityGroupName string) bool {
+	var foundGroup = false
 	//query the security group that has specified virtual machine
 	var memberListQuery securityGroupsMemberList
 	//unmarshal the response
@@ -24,12 +25,16 @@ func getMembers(ResponseData []uint8) bool {
 
 		//search and log the security group members name
 		for _, securityGroupMembers := range memberListQuery.SecurityGroups.SecurityGroup {
-			log.Println("[INFO] Security Group found . ID " + securityGroupMembers.ObjectId + " Name " + securityGroupMembers.Name)
-		}
-		return true
+			if securityGroupName == securityGroupMembers.Name {
+				log.Println("[INFO] Security Group found . ID " + securityGroupMembers.ObjectId + " Name " + securityGroupMembers.Name)
+				foundGroup = true
+				break
+			} //if
+		} //for
+		return foundGroup
 	} else {
 		fmt.Errorf("[ERROR] No security group was found for specified virtual machine.")
-		return false
+		return foundGroup
 	}
 }
 
