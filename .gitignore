@@ -28,4 +28,8 @@ website/vendor
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate
+<<<<<<< HEAD
 !command/test-fixtures/**/.terraform/
+=======
+!command/test-fixtures/**/.terraform/
+>>>>>>> 1a71950fbb51dd501309515de24d21d2474570a5
