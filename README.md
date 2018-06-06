@@ -1,3 +1,6 @@
+
+
+
 # Terraform Vmware NSX Provider
 
 This is the repository for the Terraform [VMware NSX][1] Provider, which one can use
@@ -69,6 +72,8 @@ resource "nsx_add_virtual_machine_security_group" "virtualmachine" {
 
 ```
 ## Checking the Logs
+To persist logged output you can set TF_LOG_PATH in order to force the log to always be appended to a specific file when logging is enabled. Note that even when TF_LOG_PATH is set, TF_LOG must be set in order for any logging to be enabled.
+
 To check logs use the following commands
 ```sh
 export TF_LOG=DEBUG
@@ -163,3 +168,4 @@ make testacc TESTARGS="-run=TestAccNsx"
 This following example would run all of the acceptance tests matching
 `TestAccNsx`. Change this for the specific tests you want to
 run.
+
