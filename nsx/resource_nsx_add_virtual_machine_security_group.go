@@ -85,7 +85,6 @@ func resourceNsxAddVirtualMachineRead(d *schema.ResourceData, metadata interface
 	securityGroupName := d.Get("security_group_name").(string)
 
 	virtualMachine := d.Get("virtual_machine").(*schema.Set)
-	log.Println("vj----read", virtualMachine)
 	for _, vms := range virtualMachine.List() {
 		vm := vms.(map[string]interface{})
 
@@ -115,7 +114,6 @@ func resourceNsxAddVirtualMachineRead(d *schema.ResourceData, metadata interface
 				virtualMachine.Remove(vms)
 			}
 		}
-		log.Println("vj----read--after", virtualMachine, len(virtualMachine.List()))
 
 		d.Partial(true)
 		d.Set("virtual_machine", virtualMachine)
@@ -201,7 +199,7 @@ func resourceNsxAddVirtualMachineDelete(d *schema.ResourceData, metadata interfa
 		response, err := nsxCredentials.NsxConnection(DELETE, requiredUrl, nil)
 		if err != nil {
 			log.Println(err)
-			return err
+
 		}
 
 		//close the response body
@@ -214,6 +212,7 @@ func resourceNsxAddVirtualMachineDelete(d *schema.ResourceData, metadata interfa
 //update the partially added virtual machine
 func resourceNsxAddVirtualMachineUpdate(d *schema.ResourceData, metadata interface{}) error {
 	virtualMachine := d.Get("virtual_machine").(*schema.Set)
+
 	if d.HasChange("virtual_machine") {
 		oldList, newList := d.GetChange("virtual_machine")
 		if oldList == nil {
@@ -226,18 +225,16 @@ func resourceNsxAddVirtualMachineUpdate(d *schema.ResourceData, metadata interfa
 		oList := oldList.(*schema.Set)
 		nList := newList.(*schema.Set)
 
-		toRemove := oList.Difference(nList).List()
-		log.Println("remove-------", toRemove)
-
-		toAdd := nList.Difference(oList).List()
-		log.Println("add------", toAdd)
-
-		if len(toAdd) > 0 {
-			virtualMachine.Add(toAdd)
+		toRemove := oList.Difference(nList)
+		err := removeVirtualMachines(d, metadata, toRemove)
+		if err != nil {
+			log.Println(err)
 		}
 
-		if len(toRemove) > 0 {
-			virtualMachine.Remove(toRemove)
+		toAdd := nList.Difference(oList)
+		err = addVirtualMachines(d, metadata, toAdd)
+		if err != nil {
+			log.Println(err)
 		}
 
 		d.Partial(true)
@@ -260,4 +257,77 @@ func resourceNsxAddVirtualMachineHash(v interface{}) int {
 	buf.WriteString(fmt.Sprintf("%s-", m["id"].(string)))
 
 	return hashcode.String(buf.String())
+}
+
+func removeVirtualMachines(d *schema.ResourceData, metadata interface{}, toRemove *schema.Set) error {
+	nsxCredentials := metadata.(NsxCredentials)
+	securityGroupName := d.Get("security_group_name").(string)
+	//get security group details i.e. id , node id , vsmuuid, revision number and description.
+	securityGroupDetails := GetSecurityDetails(securityGroupName, nsxCredentials)
+
+	for _, vms := range toRemove.List() {
+		vm := vms.(map[string]interface{})
+
+		err := resourceNsxAddVirtualMachineRead(d, metadata)
+		if d.Id() == "" {
+			return fmt.Errorf("[ERROR] Virtual Machine does not exists %s", err)
+		}
+		//acqurie VirtualMachine details
+		virtualMachineId := vm["id"].(string)
+
+		//add virtualMachine to the security group
+		requiredUrl := RemoveVirtualMachineAPI(nsxCredentials, securityGroupDetails.ObjectIdDetail, virtualMachineId)
+		//send a DELETE request
+		response, err := nsxCredentials.NsxConnection(DELETE, requiredUrl, nil)
+		if err != nil {
+			log.Println(err)
+
+		}
+
+		//close the response body
+		defer response.Body.Close()
+	} //for
+	return nil
+} //removeNsxVirtualMachine
+
+func addVirtualMachines(d *schema.ResourceData, metadata interface{}, toAdd *schema.Set) error {
+
+	nsxCredentials := metadata.(NsxCredentials)
+	securityGroupName := d.Get("security_group_name").(string)
+
+	//get security group details i.e. id , node id , vsmuuid, revision number and description.
+	securityGroupDetails := GetSecurityDetails(securityGroupName, nsxCredentials)
+	for _, vms := range toAdd.List() {
+		vm := vms.(map[string]interface{})
+
+		//acqurie VirtualMachine details
+		virtualMachineDetails := assignVirtualMachineDetails(vm["name"].(string), vm["id"].(string), d.Get("cluster_name").(string), d.Get("domain_id").(string))
+		//add virtualMachine to the security group
+		requiredUrl := SecurityGroupAddMembersAPI(nsxCredentials, securityGroupDetails.ObjectIdDetail, virtualMachineDetails.virtualMachineid)
+		//get xml request body that is to be parsed
+		data := parseXMLMarshal(securityGroupDetails, virtualMachineDetails)
+
+		//send a PUT request
+		response, err := nsxCredentials.NsxConnection(PUT, requiredUrl, strings.NewReader(data))
+
+		if err != nil {
+			log.Println(err)
+			toAdd.Remove(vms)
+		}
+		if response != nil {
+			//close the response body
+			defer response.Body.Close()
+			d.Partial(true)
+			d.SetPartial("domain_id")
+			d.SetPartial("security_group_name")
+			d.SetPartial("cluster_name")
+			d.SetPartial("virtual_machine")
+			d.Partial(false)
+			//set the id of the completed option to maintain the output,resources and primary id in the tfstate file useful at the time of terraform destroy
+			d.SetId(d.Get("domain_id").(string) + "/" + securityGroupDetails.ObjectIdDetail + "/" + securityGroupName)
+
+		} //if
+
+	} //for
+	return nil
 }
