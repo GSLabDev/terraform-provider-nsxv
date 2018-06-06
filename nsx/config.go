@@ -89,7 +89,7 @@ func (nsxCredentials NsxCredentials) NsxConnection(method string, url string, bu
 		return response, nil
 	}
 
-	return response, fmt.Errorf("[ERROR] %s", status)
+	return nil, fmt.Errorf("[ERROR] %s", status)
 
 } // nsxConnection
 

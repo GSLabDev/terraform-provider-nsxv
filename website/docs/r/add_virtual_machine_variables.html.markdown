@@ -4,21 +4,16 @@ Provides a VMware vSphere's NSX variable description when one or more virtual ma
 
 ## Example Usage
 
-```hcl
-variable "virtual_machine_name_list" {
-  type    = "list"
-  default = ["VM1", "VM2", "VM3"]
-}
+``` virtual_machine {
+    name = "VM1"
+    id   = "vm-40"
+  }
 
-variable "virtual_machine_id_list" {
-  type    = "list"
-  default = ["vm-296", "vm-298", "vm-297"]
-}
 ```
 
 ## Argument Reference
 
 The following arguments are supported:
 
-* `type` - Provide type as list of arguments 
-* `default` - Provide list of arguments
+* `name` - Provides virtual machine name that is to be added to the security group. 
+* `id` - Provides ID of the corresponding virtual machine.

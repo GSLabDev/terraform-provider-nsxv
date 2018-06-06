@@ -1,4 +1,6 @@
 
+
+
 # Terraform Vmware NSX Provider
 
 This is the repository for the Terraform [VMware NSX][1] Provider, which one can use
@@ -40,17 +42,42 @@ provider "nsx" {
   port          = ${var.nsx_port}
 }
 
-
 #add virtual machines in the list to the specified security group
 resource "nsx_add_virtual_machine_security_group" "virtualmachine" {
-  count                = "${length(var.virtual_machine_name_list)}"
+ 
   cluster_name         = "Compute Cluster A"
   security_group_name  = "Security Group 1"
   domain_id            = "domain-c242"
-  virtual_machine_name = ["VM1", "VM2", "VM3"]
-  virtual_machine_id   = ["vm-296", "vm-298", "vm-297"]
+ 
+  virtual_machine {
+    name = "VM1"
+    id   = "vm-40"
+  }
+
+  virtual_machine {
+    name = "VM2"
+    id   = "vm-41"
+  }
+
+  virtual_machine {
+    name = "VM3"
+    id   = "vm-42"
+  }
+
+  virtual_machine {
+    name = "VM4"
+    id   = "vm-56"
+  }
 }
 
+```
+## Checking the Logs
+To persist logged output you can set TF_LOG_PATH in order to force the log to always be appended to a specific file when logging is enabled. Note that even when TF_LOG_PATH is set, TF_LOG must be set in order for any logging to be enabled.
+
+To check logs use the following commands
+```sh
+export TF_LOG=DEBUG
+export TF_LOG_PATH=/home/terraform-provider-nsx/logs/nsx.log
 ```
 
 # Building The Provider
@@ -141,3 +168,4 @@ make testacc TESTARGS="-run=TestAccNsx"
 This following example would run all of the acceptance tests matching
 `TestAccNsx`. Change this for the specific tests you want to
 run.
+
