@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"reflect"
 	"strings"
 
 	"github.com/hashicorp/terraform/helper/hashcode"
@@ -114,11 +113,7 @@ func resourceNsxAddVirtualMachineRead(d *schema.ResourceData, metadata interface
 				virtualMachine.Remove(vms)
 			}
 		}
-
-		d.Partial(true)
-		d.Set("virtual_machine", virtualMachine)
-		d.SetPartial("virtual_machine")
-		d.Partial(false)
+		readResourceSetPartial(d, virtualMachine)
 
 	} //for
 
@@ -131,81 +126,14 @@ func resourceNsxAddVirtualMachineRead(d *schema.ResourceData, metadata interface
 
 //add VirtualMachines to the security group
 func resourceNsxAddVirtualMachineCreate(d *schema.ResourceData, metadata interface{}) error {
-
-	nsxCredentials := metadata.(NsxCredentials)
-	securityGroupName := d.Get("security_group_name").(string)
-
-	//get security group details i.e. id , node id , vsmuuid, revision number and description.
-	securityGroupDetails := GetSecurityDetails(securityGroupName, nsxCredentials)
 	virtualMachine := d.Get("virtual_machine").(*schema.Set)
-	log.Println(reflect.TypeOf(virtualMachine))
-	for _, vms := range virtualMachine.List() {
-		vm := vms.(map[string]interface{})
-
-		//acqurie VirtualMachine details
-		virtualMachineDetails := assignVirtualMachineDetails(vm["name"].(string), vm["id"].(string), d.Get("cluster_name").(string), d.Get("domain_id").(string))
-		//add virtualMachine to the security group
-		requiredUrl := SecurityGroupAddMembersAPI(nsxCredentials, securityGroupDetails.ObjectIdDetail, virtualMachineDetails.virtualMachineid)
-		//get xml request body that is to be parsed
-		data := parseXMLMarshal(securityGroupDetails, virtualMachineDetails)
-
-		//send a PUT request
-		response, err := nsxCredentials.NsxConnection(PUT, requiredUrl, strings.NewReader(data))
-
-		if err != nil {
-			log.Println(err)
-			virtualMachine.Remove(vms)
-		}
-		if response != nil {
-			//close the response body
-			defer response.Body.Close()
-			d.Partial(true)
-			d.SetPartial("domain_id")
-			d.SetPartial("security_group_name")
-			d.SetPartial("cluster_name")
-			d.SetPartial("virtual_machine")
-			d.Partial(false)
-			//set the id of the completed option to maintain the output,resources and primary id in the tfstate file useful at the time of terraform destroy
-			d.SetId(d.Get("domain_id").(string) + "/" + securityGroupDetails.ObjectIdDetail + "/" + securityGroupName)
-
-		} //if
-
-	} //for
-
+	addVirtualMachines(d, metadata, virtualMachine)
 	return nil
 } //resourceNSXAddVirtualMachineCreate
 
 func resourceNsxAddVirtualMachineDelete(d *schema.ResourceData, metadata interface{}) error {
-	nsxCredentials := metadata.(NsxCredentials)
-
-	securityGroupName := d.Get("security_group_name").(string)
-	//get security group details i.e. id , node id , vsmuuid, revision number and description.
-	securityGroupDetails := GetSecurityDetails(securityGroupName, nsxCredentials)
-
 	virtualMachine := d.Get("virtual_machine").(*schema.Set)
-	for _, vms := range virtualMachine.List() {
-		vm := vms.(map[string]interface{})
-
-		err := resourceNsxAddVirtualMachineRead(d, metadata)
-		if d.Id() == "" {
-			return fmt.Errorf("[ERROR] Virtual Machine does not exists %s", err)
-		}
-		//acqurie VirtualMachine details
-		virtualMachineId := vm["id"].(string)
-
-		//add virtualMachine to the security group
-		requiredUrl := RemoveVirtualMachineAPI(nsxCredentials, securityGroupDetails.ObjectIdDetail, virtualMachineId)
-		//send a DELETE request
-		response, err := nsxCredentials.NsxConnection(DELETE, requiredUrl, nil)
-		if err != nil {
-			log.Println(err)
-
-		}
-
-		//close the response body
-		defer response.Body.Close()
-	} //for
-
+	removeVirtualMachines(d, metadata, virtualMachine)
 	return nil
 }
 
@@ -237,14 +165,7 @@ func resourceNsxAddVirtualMachineUpdate(d *schema.ResourceData, metadata interfa
 			log.Println(err)
 		}
 
-		d.Partial(true)
-		d.Set("virtual_machine", virtualMachine)
-		d.SetPartial("domain_id")
-		d.SetPartial("security_group_name")
-		d.SetPartial("cluster_name")
-		d.SetPartial("virtual_machine")
-		d.Partial(false)
-
+		updateResourceSetPartial(d, virtualMachine)
 	} //if
 
 	return resourceNsxAddVirtualMachineRead(d, metadata)
@@ -317,17 +238,38 @@ func addVirtualMachines(d *schema.ResourceData, metadata interface{}, toAdd *sch
 		if response != nil {
 			//close the response body
 			defer response.Body.Close()
-			d.Partial(true)
-			d.SetPartial("domain_id")
-			d.SetPartial("security_group_name")
-			d.SetPartial("cluster_name")
-			d.SetPartial("virtual_machine")
-			d.Partial(false)
-			//set the id of the completed option to maintain the output,resources and primary id in the tfstate file useful at the time of terraform destroy
-			d.SetId(d.Get("domain_id").(string) + "/" + securityGroupDetails.ObjectIdDetail + "/" + securityGroupName)
-
+			createResourceSetPartial(d, securityGroupDetails, securityGroupName)
 		} //if
 
 	} //for
 	return nil
+}
+
+func createResourceSetPartial(d *schema.ResourceData, securityGroupDetails securityGroupDetails, securityGroupName string) {
+	d.Partial(true)
+	d.SetPartial("domain_id")
+	d.SetPartial("security_group_name")
+	d.SetPartial("cluster_name")
+	d.SetPartial("virtual_machine")
+	d.Partial(false)
+	//set the id of the completed option to maintain the output,resources and primary id in the tfstate file useful at the time of terraform destroy
+	d.SetId(d.Get("domain_id").(string) + "/" + securityGroupDetails.ObjectIdDetail + "/" + securityGroupName)
+
+} //createResourceSetPartial
+
+func updateResourceSetPartial(d *schema.ResourceData, virtualMachine *schema.Set) {
+	d.Partial(true)
+	d.Set("virtual_machine", virtualMachine)
+	d.SetPartial("domain_id")
+	d.SetPartial("security_group_name")
+	d.SetPartial("cluster_name")
+	d.SetPartial("virtual_machine")
+	d.Partial(false)
+}
+
+func readResourceSetPartial(d *schema.ResourceData, virtualMachine *schema.Set) {
+	d.Partial(true)
+	d.Set("virtual_machine", virtualMachine)
+	d.SetPartial("virtual_machine")
+	d.Partial(false)
 }
